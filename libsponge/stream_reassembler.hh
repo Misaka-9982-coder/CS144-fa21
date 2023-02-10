@@ -4,21 +4,27 @@
 #include "byte_stream.hh"
 
 #include <cstdint>
-#include <map>
 #include <string>
+#include <map>
 
 //! \brief A class that assembles a series of excerpts from a byte stream (possibly out of order,
 //! possibly overlapping) into an in-order byte stream.
 class StreamReassembler {
   private:
     // Your code here -- add private members as necessary.
-    std::map<size_t, std::string> _unassemble_strs;
-    size_t _next_assembled_idx;
-    size_t _unassembled_bytes_num;
-    size_t _eof_idx;
+    std::map<size_t, std::string> _unass; //!< The map the reflect the index of bytes to the substring
+    size_t _next_ass_idx; //!< The index of the next bytes should be assembled
+    size_t _unass_bytes;  //!< The number of bytes that is stored but still unassembled
+    size_t _eof_idx;      //!< The index of EOF
 
     ByteStream _output;  //!< The reassembled in-order byte stream
     size_t _capacity;    //!< The maximum number of bytes
+
+    size_t get_idx(const size_t index);
+    void truncate(const size_t new_idx, ssize_t& data_size);
+    void save(const std::string &data, const size_t new_idx, 
+              const ssize_t data_size, const size_t data_start_pos);
+    void check_contiguous();
 
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.
