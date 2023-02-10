@@ -170,7 +170,7 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     
     save(data, new_idx, data_size, data_start_pos);
 
-    check_contiguous();
+    make_contiguous();
     
     if (eof) {
         _eof_idx = index + data.size();
