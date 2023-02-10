@@ -13,13 +13,8 @@ void DUMMY_CODE(Targs &&... /* unused */) {}
 using namespace std;
 
 StreamReassembler::StreamReassembler(const size_t capacity)
-    : _window()
-    , _next_ass_idx(0)
-    , _uass_bytes(0)
-    , _eof_idx(0)
-    , _eof(0)
-    , _output(capacity)
-    , _capacity(capacity) {}
+    : _window(), _next_ass_idx(0), _uass_bytes(0)
+    , _eof_idx(0), _eof(0), _output(capacity) , _capacity(capacity) {}
 
 void StreamReassembler::insert_pair(const string &data, const size_t idx) {
     size_t len = data.length();
@@ -29,10 +24,7 @@ void StreamReassembler::insert_pair(const string &data, const size_t idx) {
 
     auto _iter = _window.begin();
 
-    if(_iter->first < _next_ass_idx) {
-        return;
-    }
-
+    // 线段扫描
     size_t total = _iter->second.length();
     size_t ed = _iter->first + total - 1;
 
@@ -48,9 +40,6 @@ void StreamReassembler::insert_pair(const string &data, const size_t idx) {
             ed = max(_iter->first + data_len - 1, ed);
             continue;
         }
-
-        total += data_len - ed + _iter->first;
-        ed = max(_iter->first + data_len, ed);
     }
 
     _uass_bytes = max(_uass_bytes, total);
@@ -60,10 +49,13 @@ void StreamReassembler::write_substring() {
     auto _iter = _window.begin();
     for ( /* nop */ ; _iter != _window.end(); _iter ++ ) {
         size_t data_len = _iter->second.length();
+
+        // 1. 不连续， break
         if (_iter->first > _next_ass_idx) {
             break;
         }
 
+        // 2. 已经写入过 ByteStream 
         if ((data_len + _iter->first) <= _next_ass_idx) {
             continue;
         }
@@ -92,10 +84,13 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
         _eof_idx = index + data.length();
     }
 
+    // 1. 有重叠的部分 或者 index刚好是 _next_ass_idx 
     if (index <= _next_ass_idx && data.length() + index >= _next_ass_idx) {
         insert_pair(data, index);
         write_substring();
-    } else if (index > _next_ass_idx) {
+    } 
+    // 2. 没有重叠的部分，先存起来
+    else if (index > _next_ass_idx) {
         insert_pair(data, index);
     }
 }
