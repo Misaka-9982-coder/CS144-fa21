@@ -112,7 +112,7 @@ void StreamReassembler::save(const std::string &data, const size_t new_idx,
 //! \details This functions calls just after pushing a substring into the
 //! _output stream. It aims to check if there exists any contiguous substrings
 //! recorded earlier can be push into the stream.
-void StreamReassembler::check_contiguous() {
+void StreamReassembler::make_contiguous() {
     for (auto iter = _unass.begin(); iter != _unass.end(); /* nop */) { 
         assert(_next_ass_idx <= iter->first);
 

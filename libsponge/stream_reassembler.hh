@@ -24,7 +24,7 @@ class StreamReassembler {
     void truncate(const size_t new_idx, ssize_t& data_size);
     void save(const std::string &data, const size_t new_idx, 
               const ssize_t data_size, const size_t data_start_pos);
-    void check_contiguous();
+    void make_contiguous();
 
   public:
     //! \brief Construct a `StreamReassembler` that will store up to `capacity` bytes.
