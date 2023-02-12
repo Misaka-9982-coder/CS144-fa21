@@ -138,6 +138,7 @@ inline void StreamReassembler::add_block(StreamBlock &new_block) {
                 (*nblk).buffer().remove_suffix((*nblk).end() - (*iter).begin());
                 break;
             }
+            
             StreamBlock last(*nblk);
             (*nblk).buffer().remove_suffix((*nblk).end() - (*iter).begin());
             last.buffer().remove_prefix((*iter).end() - (*nblk).begin());
@@ -152,10 +153,10 @@ inline void StreamReassembler::add_block(StreamBlock &new_block) {
         if (prev != _blocks.begin()) {
             prev -- ;
             nblk = blks_to_add.begin();
-            
-            if (overlap(*nblk, *prev)) {
-                (*nblk).buffer().remove_prefix((*prev).end() - (*nblk).begin());
-            }
+        }
+
+        if (overlap(*nblk, *prev)) {
+            (*nblk).buffer().remove_prefix((*prev).end() - (*nblk).begin());
         }
     }
 
@@ -173,7 +174,7 @@ bool StreamReassembler::overlap(const StreamBlock &blk, const StreamBlock &new_b
         return overlap(new_blk, blk);
     }
 
-    return (blk.begin() < new_blk.end());
+    return !(blk.begin() >= new_blk.end());
 }
 
 uint64_t StreamReassembler::first_unassembled() const { return _first_uass; }
