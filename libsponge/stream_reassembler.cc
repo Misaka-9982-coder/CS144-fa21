@@ -118,7 +118,8 @@ inline void StreamReassembler::write_to_stream() {
     }
 }
 
-//! \details This function 
+//! \details This function add "to_add" blocks to set blocks
+// merge all the blocks mergeable
 inline void StreamReassembler::add_block(StreamBlock &new_block) {
     if (new_block.len() == 0) {
         return;
@@ -127,11 +128,7 @@ inline void StreamReassembler::add_block(StreamBlock &new_block) {
     vector<StreamBlock> blks_to_add;
     blks_to_add.emplace_back(new_block);
 
-    do {
-        if (_blocks.empty()) {
-            break;
-        }
-
+    if (!_blocks.empty()) {
         auto nblk = blks_to_add.begin();
         auto iter = _blocks.lower_bound(*nblk);
         auto prev = iter;
@@ -140,30 +137,27 @@ inline void StreamReassembler::add_block(StreamBlock &new_block) {
             if ((*iter).end() >= (*nblk).end()) {
                 (*nblk).buffer().remove_suffix((*nblk).end() - (*iter).begin());
                 break;
-            } else {
-                StreamBlock last(*nblk);
-                (*nblk).buffer().remove_suffix((*nblk).end() - (*iter).begin());
-                last.buffer().remove_prefix((*iter).end() - (*nblk).begin());
-                blks_to_add.push_back(last);
-                nblk = blks_to_add.end();
-                nblk -- ;
-                iter ++ ;
             }
+            StreamBlock last(*nblk);
+            (*nblk).buffer().remove_suffix((*nblk).end() - (*iter).begin());
+            last.buffer().remove_prefix((*iter).end() - (*nblk).begin());
+            blks_to_add.push_back(last);
+            nblk = blks_to_add.end();
+            nblk -- ;
+            iter ++ ;
         }
 
         // compare with prevs
-        //  check one previous block is enough
-        if (prev == _blocks.begin()) {
-            break;
+        // check one previous block is enough
+        if (prev != _blocks.begin()) {
+            prev -- ;
+            nblk = blks_to_add.begin();
+            
+            if (overlap(*nblk, *prev)) {
+                (*nblk).buffer().remove_prefix((*prev).end() - (*nblk).begin());
+            }
         }
-
-        prev -- ;
-        nblk = blks_to_add.begin();
-        
-        if (overlap(*nblk, *prev)) {
-            (*nblk).buffer().remove_prefix((*prev).end() - (*nblk).begin());
-        }
-    } while (false);
+    }
 
     for (auto &blk : blks_to_add) {
         if (blk.len() != 0) {
@@ -179,7 +173,7 @@ bool StreamReassembler::overlap(const StreamBlock &blk, const StreamBlock &new_b
         return overlap(new_blk, blk);
     }
 
-    return !(blk.begin() >= new_blk.end());
+    return (blk.begin() < new_blk.end());
 }
 
 uint64_t StreamReassembler::first_unassembled() const { return _first_uass; }
