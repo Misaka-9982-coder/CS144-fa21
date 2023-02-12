@@ -102,3 +102,29 @@ vector<iovec> BufferViewList::as_iovecs() const {
     }
     return ret;
 }
+
+void BufferPlus::remove_prefix(const size_t n) {
+    if (n > str().size()) {
+        _storage.reset();
+        return;
+    }
+    
+    _starting_offset += n;
+
+    if (_storage and _starting_offset + _ending_offset >= _storage->size()) {
+        _storage.reset();
+    }
+}
+
+void BufferPlus::remove_suffix(const size_t n) {
+    if(n > str().size()) {
+        _storage.reset();
+        return;
+    }
+
+    _ending_offset += n;
+
+    if (_storage and _starting_offset + _ending_offset >= _storage->size()) {
+        _storage.reset();
+    }
+}
