@@ -53,7 +53,12 @@ void TCPSender::fill_window() {
         if (!_timer.activated()) {
             _timer.reset(_retransmission_timeout);
         }
-
+        
+        /**
+         * @note SYN_SENT state
+         * @def next_seqno_absolute() > 0
+         * and next_seqno_absolute() == bytes_in_flight()
+         */
         _state = SYN_SENT;
     } else if (_state == SYN_ACKED) {
 
