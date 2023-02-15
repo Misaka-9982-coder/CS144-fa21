@@ -11,6 +11,29 @@
 
 //! \brief The "sender" part of a TCP implementation.
 
+class RetransmissionTimer {
+  private:
+    long long _time_rest;
+    bool _on_off;
+
+  public:
+    RetransmissionTimer(uint RTO = 0)
+      : _time_rest(RTO), _on_off(false) {}
+    
+    void reset(uint RTO) {
+      _on_off = true;
+      _time_rest = RTO;
+    }
+
+    bool passing(const size_t ms_since_last_tick) {
+      _time_rest -= ms_since_last_tick;
+      return _on_off && (_time_rest <= 0);
+    }
+
+    bool activated() const { return _on_off; }
+    void stop() { _on_off = false; }
+};
+
 //! Accepts a ByteStream, divides it up into segments and sends the
 //! segments, keeps track of which segments are still in-flight,
 //! maintains the Retransmission Timer, and retransmits in-flight
@@ -32,6 +55,23 @@ class TCPSender {
     //! the (absolute) sequence number for the next byte to be sent
     uint64_t _next_seqno{0};
 
+    uint _consecutive_retransmission_count{0};
+    uint _retransmission_timeout;
+    
+    RetransmissionTimer _timer;
+
+    size_t _window_size;
+    size_t _bytes_in_flight;
+
+    enum TCPState { CLOSED, SYN_SENT, SYN_ACKED, FIN_SENT, FIN_ACKED };
+    TCPState _state{ CLOSED };
+
+    std::queue<TCPSegment> _segments_in_flight;
+
+    static bool segcmp(const TCPSegment &seg1, const TCPSegment &seg2) {
+      return seg1.header().seqno.raw_value() > seg2.header().seqno.raw_value();
+    }
+
   public:
     //! Initialize a TCPSender
     TCPSender(const size_t capacity = TCPConfig::DEFAULT_CAPACITY,
@@ -51,7 +91,8 @@ class TCPSender {
     void ack_received(const WrappingInt32 ackno, const uint16_t window_size);
 
     //! \brief Generate an empty-payload segment (useful for creating empty ACK segments)
-    void send_empty_segment();
+    void send_empty_ack();
+    void send_empty_rst();
 
     //! \brief create and send segments to fill as much of the window as possible
     void fill_window();
