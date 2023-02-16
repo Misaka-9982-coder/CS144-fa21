@@ -36,26 +36,35 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
      * @note FIN_RECV state
      * @def stream_out.input_ended()
      */
-    if (stream_out().input_ended()) {
-        return;
-    }
+    if (_ackno.has_value() && !stream_out().input_ended()) {
+        
+        /**
+         * @note SYN_RECV state
+         * @def ackno.has_value() and not stream_out.input_ended()
+         * @code 48 - 54
+         */
+        auto data = Buffer(move(seg.payload().copy()));
+        auto index = unwrap(seg.header().seqno, _seq + 1, _checkpt);  // "+ 1" for the "SYN"
+        
+        if (index > _checkpt && ((index - _checkpt) & 0x80000000)) {  // data too far, considered out of data
+            return;
+        }
 
-    /**
-     * @note SYN_RECV state
-     * @def ackno.has_value() and not stream_out.input_ended()
-     * @code 48 - 54
-     */
-    auto data = Buffer(move(seg.payload().copy()));
-    auto index = unwrap(seg.header().seqno, _seq + 1, _checkpt);  // "+ 1" for the "SYN"
-    auto eof = seg.header().fin;
+        if (index < _checkpt && ((_checkpt - index) & 0x80000000)) {  // data too far, considered out of data
+            return;
+        }
+        
+        auto eof = seg.header().fin;
 
-    _reassembler.push_substring(data, index, eof);
-    _ackno = _ackno.value() + _reassembler.first_unassembled() - _checkpt;
-    _checkpt = _reassembler.first_unassembled();
+        _reassembler.push_substring(data, index, eof);
+        _ackno = _ackno.value() + _reassembler.first_unassembled() - _checkpt;
 
-    // FIN should make _ackno + 1
-    if (stream_out().input_ended()) {
-        _ackno = _ackno.value() + 1;
+        // FIN should make _ackno + 1
+        if (stream_out().input_ended()) {
+            _ackno = _ackno.value() + 1;
+        }
+
+        _checkpt = _reassembler.first_unassembled();
     }
 }
 
