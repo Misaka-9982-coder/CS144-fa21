@@ -128,7 +128,11 @@ inline void StreamReassembler::add_block(StreamBlock &new_block) {
     vector<StreamBlock> blks_to_add;
     blks_to_add.emplace_back(new_block);
 
-    if (!_blocks.empty()) {
+    do {
+        if (_blocks.empty()) {
+            break;
+        }
+
         auto nblk = blks_to_add.begin();
         auto iter = _blocks.lower_bound(*nblk);
         auto prev = iter;
@@ -150,15 +154,18 @@ inline void StreamReassembler::add_block(StreamBlock &new_block) {
 
         // compare with prevs
         // check one previous block is enough
-        if (prev != _blocks.begin()) {
-            prev -- ;
-            nblk = blks_to_add.begin();
+        if (prev == _blocks.begin()) {
+            break;
         }
+
+        prev -- ;
+        nblk = blks_to_add.begin();
 
         if (overlap(*nblk, *prev)) {
             (*nblk).buffer().remove_prefix((*prev).end() - (*nblk).begin());
         }
-    }
+
+    } while (false);
 
     for (auto &blk : blks_to_add) {
         if (blk.len() != 0) {
