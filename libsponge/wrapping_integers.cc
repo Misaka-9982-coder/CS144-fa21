@@ -28,10 +28,23 @@ WrappingInt32 wrap(uint64_t n, WrappingInt32 isn) {
 //! and the other stream runs from the remote TCPSender to the local TCPReceiver and
 //! has a different ISN.
 uint64_t unwrap(WrappingInt32 n, WrappingInt32 isn, uint64_t checkpoint) {
-    auto offset = n.raw_value() - wrap(checkpoint, isn).raw_value();
-    auto res = offset + checkpoint;
-    if(offset > (1u << 31) && res >= (1ul << 32)) {
-        res -= (1ul << 32);
+    uint32_t rest = ((n.raw_value() + 1) + (0xFFFFFFFF - isn.raw_value()));  // why+1?  because ?1 - 3 = ?1 + 10 - 3 = ?8 and 10 = 9 + 1
+    uint32_t checkpoint_32 = checkpoint;  // checkpoint & 0xFFFFFFFF;
+    uint32_t dif = checkpoint_32 > rest ? checkpoint_32 - rest : rest - checkpoint_32;
+    uint64_t indexes;
+    if (dif & 0x80000000) {  // bigger than half of uint32
+
+        if (checkpoint_32 < rest && (checkpoint >> 32) > 1) {
+            indexes = (((checkpoint >> 32) - 1) << 32) + rest;
+        } else if (checkpoint_32 > rest) {
+            indexes = (((checkpoint >> 32) + 1) << 32) + rest;
+        } else {
+            indexes = (((checkpoint >> 32)) << 32) + rest;
+        }
+    
+    } else {
+        indexes = ((checkpoint >> 32) << 32) + rest;
     }
-    return res;
+
+    return indexes;
 }
