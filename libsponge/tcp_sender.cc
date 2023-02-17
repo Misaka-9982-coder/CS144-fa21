@@ -32,10 +32,6 @@ uint64_t TCPSender::bytes_in_flight() const { return _bytes_in_flight; }
 void TCPSender::fill_window() {
     size_t window_size = _window_size == 0 ? 1 : _window_size;
 
-    /**
-     * @note CLOSED state
-     * @def next_seqno_absolute() == 0
-     */
     if (_state == CLOSED) {
         TCPSegment seg;
         seg.header().syn = true;
@@ -54,11 +50,6 @@ void TCPSender::fill_window() {
             _timer.reset(_retransmission_timeout);
         }
         
-        /**
-         * @note SYN_SENT state
-         * @def next_seqno_absolute() > 0
-         * and next_seqno_absolute() == bytes_in_flight()
-         */
         _state = SYN_SENT;
     } else if (_state == SYN_ACKED) {
 
@@ -77,12 +68,6 @@ void TCPSender::fill_window() {
             )));
             bytes_sent += seg.payload().size();
 
-            /**
-             * @note FIN_SENT state
-             * @def stream_in().eof() 
-             * and next_seqno_absolute() == stream_in().bytes_written() + 2
-             * and sender.bytes_in_flight() > 0
-             */
             if (_stream.eof() && bytes_sent < max_tobe_sent) {
                 seg.header().fin = true;
                 _state = FIN_SENT;
@@ -102,12 +87,6 @@ void TCPSender::fill_window() {
             }
         }
 
-        /**
-         * @note FIN_SENT state
-         * @def stream_in().eof() 
-         * and next_seqno_absolute() == stream_in().bytes_written() + 2
-         * and sender.bytes_in_flight() > 0
-         */
         if (window_size - _bytes_in_flight >= 1 && _stream.eof() && _state == SYN_ACKED) {
             TCPSegment fin_seg;
             fin_seg.header().fin = true;
@@ -144,7 +123,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     }
 
     TCPSegment seg = _segments_in_flight.front();
-    bool rec_success = false;
+    bool successful_receipt_of_new_data = false;
 
     auto seq = unwrap(seg.header().seqno, _isn, _next_seqno) + seg.length_in_sequence_space();
     auto ack = unwrap(ackno, _isn, _next_seqno);
@@ -152,7 +131,7 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     while (seq <= ack) {
         _bytes_in_flight -= seg.length_in_sequence_space();
         _segments_in_flight.pop();
-        rec_success = true;
+        successful_receipt_of_new_data = true;
 
         if (_segments_in_flight.empty()) {
             break;
@@ -164,29 +143,39 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
         ack = unwrap(ackno, _isn, _next_seqno);
     }
 
-    if (rec_success) {
+    if (successful_receipt_of_new_data) {
+        // 7. (a) Set the RTO back to its “initial value.”
         _retransmission_timeout = _initial_retransmission_timeout;
-        _consecutive_retransmission_count = 0;
 
+        // 7. (b) If the sender has any outstanding data, restart the retransmission timer 
+        // so that it will expire after RTO milliseconds (for the current value of RTO).
         if (!_segments_in_flight.empty()) {
             _timer.reset(_retransmission_timeout);
         } else {
             _timer.stop();
         }
+
+        // 7. (c) Reset the count of “consecutive retransmissions” back to zero.
+        _consecutive_retransmission_count = 0;
     }
 }
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
 void TCPSender::tick(const size_t ms_since_last_tick) { 
+    // If tick is called and the retransmission timer has expired
     if (_timer.activated() && _timer.passing(ms_since_last_tick)) {
-
+        // 6. (a) 
         TCPSegment seg = _segments_in_flight.front();
 
+        // If the window size is nonzero
         if (_window_size != 0) {
+            // 6. (b) i
             _consecutive_retransmission_count ++ ;
+            // 6. (b) ii
             _retransmission_timeout *= 2;
         }
 
+        // 6. (c)
         if (_consecutive_retransmission_count <= TCPConfig::MAX_RETX_ATTEMPTS) {
             _segments_out.push(seg);
             _timer.reset(_retransmission_timeout);
