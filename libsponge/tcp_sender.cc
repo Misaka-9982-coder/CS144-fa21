@@ -53,6 +53,7 @@ void TCPSender::fill_window() {
 
         size_t bytes_sent = 0;
 
+        // Congestion control
         if (_bytes_in_flight >= window_size) {
             return;
         }
@@ -62,9 +63,10 @@ void TCPSender::fill_window() {
         while (bytes_sent < max_tobe_sent && !_stream.buffer_empty()) {
             // normal segment
             TCPSegment seg;
-            seg.payload() = Buffer(move(_stream.read(
-                min(TCPConfig::MAX_PAYLOAD_SIZE, max_tobe_sent - bytes_sent)
-            )));
+            seg.payload() = Buffer(move(_stream.read(min(
+                TCPConfig::MAX_PAYLOAD_SIZE, max_tobe_sent - bytes_sent
+            ))));
+            
             bytes_sent += seg.payload().size();
 
             if (_stream.eof() && bytes_sent < max_tobe_sent) {
@@ -110,16 +112,19 @@ void TCPSender::fill_window() {
 //! \param ackno The remote receiver's ackno (acknowledgment number)
 //! \param window_size The remote receiver's advertised window size
 void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_size) {
+    // do not receive
     if (unwrap(ackno, _isn, _next_seqno) > _next_seqno) {
         return;
     }
 
     _window_size = window_size;
 
+    // from SYN_SENT state to SYN_ACKED state
     if (_state == SYN_SENT && ackno == wrap(1, _isn)) {
         _state = SYN_ACKED;
     }
 
+    // no segments to receive
     if (_segments_in_flight.empty()) {
         return;
     }
