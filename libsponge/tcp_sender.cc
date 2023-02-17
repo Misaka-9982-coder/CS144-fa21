@@ -33,13 +33,11 @@ void TCPSender::fill_window() {
     size_t window_size = _window_size == 0 ? 1 : _window_size;
 
     if (_state == CLOSED) {
+        // syn_segment
         TCPSegment seg;
         seg.header().syn = true;
         seg.header().seqno = wrap(_next_seqno, _isn);
 
-        //! seg.length_in_sequence_space() > 0
-        //! next_seqno_absolute() > 0
-        //! next_seqno_absolute() == bytes_in_flight()
         _next_seqno += seg.length_in_sequence_space();
         _bytes_in_flight += seg.length_in_sequence_space();
 
@@ -62,6 +60,7 @@ void TCPSender::fill_window() {
         size_t max_tobe_sent = window_size - _bytes_in_flight;
 
         while (bytes_sent < max_tobe_sent && !_stream.buffer_empty()) {
+            // normal segment
             TCPSegment seg;
             seg.payload() = Buffer(move(_stream.read(
                 min(TCPConfig::MAX_PAYLOAD_SIZE, max_tobe_sent - bytes_sent)
@@ -79,7 +78,6 @@ void TCPSender::fill_window() {
             _bytes_in_flight += seg.length_in_sequence_space();
 
             _segments_in_flight.push(seg);
-
             _segments_out.emplace(move(seg));
 
             if (!_timer.activated()) {
@@ -88,11 +86,15 @@ void TCPSender::fill_window() {
         }
 
         if (window_size - _bytes_in_flight >= 1 && _stream.eof() && _state == SYN_ACKED) {
+            // fin_segment
             TCPSegment fin_seg;
+
             fin_seg.header().fin = true;
             fin_seg.header().seqno = wrap(_next_seqno, _isn);
+            
             _bytes_in_flight += fin_seg.length_in_sequence_space();
             _next_seqno += fin_seg.length_in_sequence_space();
+
             _segments_in_flight.push(fin_seg);
             _segments_out.emplace(move(fin_seg));
 
