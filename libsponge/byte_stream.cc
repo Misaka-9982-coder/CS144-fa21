@@ -67,7 +67,7 @@ string ByteStream::peek_output(const size_t len) const {
 
     for (const auto &buffer : _buffer) {
         if (bytes >= buffer.size()) {
-            res.append(buffer);
+            res.append(move(buffer));
             bytes -= buffer.size();
             if (bytes == 0) {
                 break;
@@ -75,7 +75,7 @@ string ByteStream::peek_output(const size_t len) const {
         } else {
             BufferPlus tmp(buffer);
             tmp.remove_suffix(buffer.size() - bytes);
-            res.append(tmp);
+            res.append(move(tmp));
             break;
         }
     }

@@ -63,7 +63,7 @@ void StreamReassembler::push_substring(const Buffer &data, const size_t index, c
         _eof_idx = index + data.size();
     }
 
-    StreamBlock blk(index, data);
+    StreamBlock blk(index, move(data));
 
     // if a part of the data have been reassembled
     if (index < _first_uass) {
@@ -108,12 +108,12 @@ inline void StreamReassembler::write_to_stream() {
 
         _first_uass += bytes_written;
         _unassembled_bytes -= bytes_written;
-        _blocks.erase(_blocks.begin());
+        _blocks.erase(move(_blocks.begin()));
 
         // partially written
         if (bytes_written != block.len()) {
-            block.buffer().remove_prefix(bytes_written);
-            _blocks.insert(block);
+            block.buffer().remove_prefix(move(bytes_written));
+            _blocks.insert(move(block));
         }
     }
 }
@@ -126,13 +126,9 @@ inline void StreamReassembler::add_block(StreamBlock &new_block) {
     }
 
     vector<StreamBlock> blks_to_add;
-    blks_to_add.emplace_back(new_block);
+    blks_to_add.emplace_back(move(new_block));
 
-    do {
-        if (_blocks.empty()) {
-            break;
-        }
-
+    if (!_blocks.empty()) {
         auto nblk = blks_to_add.begin();
         auto iter = _blocks.lower_bound(*nblk);
         auto prev = iter;
@@ -146,7 +142,7 @@ inline void StreamReassembler::add_block(StreamBlock &new_block) {
             StreamBlock last(*nblk);
             (*nblk).buffer().remove_suffix((*nblk).end() - (*iter).begin());
             last.buffer().remove_prefix((*iter).end() - (*nblk).begin());
-            blks_to_add.push_back(last);
+            blks_to_add.push_back(move(last));
             nblk = blks_to_add.end();
             nblk -- ;
             iter ++ ;
@@ -154,22 +150,19 @@ inline void StreamReassembler::add_block(StreamBlock &new_block) {
 
         // compare with prevs
         // check one previous block is enough
-        if (prev == _blocks.begin()) {
-            break;
+        if (prev != _blocks.begin()) {
+            prev -- ;
+            nblk = blks_to_add.begin();
+
+            if (overlap(*nblk, *prev)) {
+                (*nblk).buffer().remove_prefix((*prev).end() - (*nblk).begin());
+            }   
         }
-
-        prev -- ;
-        nblk = blks_to_add.begin();
-
-        if (overlap(*nblk, *prev)) {
-            (*nblk).buffer().remove_prefix((*prev).end() - (*nblk).begin());
-        }
-
-    } while (false);
+    }
 
     for (auto &blk : blks_to_add) {
         if (blk.len() != 0) {
-            _blocks.emplace(blk);
+            _blocks.emplace(move(blk));
             _unassembled_bytes += blk.len();
         }
     }
@@ -178,10 +171,10 @@ inline void StreamReassembler::add_block(StreamBlock &new_block) {
 //! \details This function check if the two blocks have overlap part
 bool StreamReassembler::overlap(const StreamBlock &blk, const StreamBlock &new_blk) const {
     if (blk.begin() < new_blk.begin()) {
-        return overlap(new_blk, blk);
+        return new_blk.begin() < blk.end();
     }
 
-    return !(blk.begin() >= new_blk.end());
+    return blk.begin() < new_blk.end();
 }
 
 uint64_t StreamReassembler::first_unassembled() const { return _first_uass; }
