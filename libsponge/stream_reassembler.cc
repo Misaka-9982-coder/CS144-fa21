@@ -63,7 +63,7 @@ void StreamReassembler::push_substring(const Buffer &data, const size_t index, c
         _eof_idx = index + data.size();
     }
 
-    StreamBlock blk(index, move(data));
+    StreamBlock blk(index, data);
 
     // if a part of the data have been reassembled
     if (index < _first_uass) {
@@ -112,7 +112,7 @@ inline void StreamReassembler::write_to_stream() {
 
         // partially written
         if (bytes_written != block.len()) {
-            block.buffer().remove_prefix(move(bytes_written));
+            block.buffer().remove_prefix(bytes_written);
             _blocks.insert(move(block));
         }
     }
@@ -126,7 +126,7 @@ inline void StreamReassembler::add_block(StreamBlock &new_block) {
     }
 
     vector<StreamBlock> blks_to_add;
-    blks_to_add.emplace_back(move(new_block));
+    blks_to_add.emplace_back(new_block);
 
     if (!_blocks.empty()) {
         auto nblk = blks_to_add.begin();
@@ -142,7 +142,7 @@ inline void StreamReassembler::add_block(StreamBlock &new_block) {
             StreamBlock last(*nblk);
             (*nblk).buffer().remove_suffix((*nblk).end() - (*iter).begin());
             last.buffer().remove_prefix((*iter).end() - (*nblk).begin());
-            blks_to_add.push_back(move(last));
+            blks_to_add.push_back(last);
             nblk = blks_to_add.end();
             nblk -- ;
             iter ++ ;

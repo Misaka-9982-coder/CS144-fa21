@@ -24,7 +24,7 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
             
             // SYN or FIN make _ackno+1
             auto ctrl = seg.length_in_sequence_space() - seg.payload().size();
-            _ackno = WrappingInt32(move(_seq)) + ctrl + _reassembler.first_unassembled();
+            _ackno = WrappingInt32(_seq) + ctrl + _reassembler.first_unassembled();
         }
 
         return;
@@ -41,7 +41,7 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
          * @def ackno.has_value() and not stream_out.input_ended()
          * @code 48 - 54
          */
-        auto index = unwrap(move(seg.header().seqno), move(_seq + 1), _checkpt);  // "+ 1" for the "SYN"
+        auto index = unwrap(seg.header().seqno, _seq + 1, _checkpt);  // "+ 1" for the "SYN"
         
         // data too far, considered out of data
         if (index > _checkpt && ((index - _checkpt) & 0x80000000)) {

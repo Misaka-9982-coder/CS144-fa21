@@ -36,7 +36,7 @@ void TCPSender::fill_window() {
         // syn_segment
         TCPSegment seg;
         seg.header().syn = true;
-        seg.header().seqno = wrap(_next_seqno, move(_isn));
+        seg.header().seqno = wrap(_next_seqno, _isn);
 
         _next_seqno += seg.length_in_sequence_space();
         _bytes_in_flight += seg.length_in_sequence_space();
@@ -74,7 +74,7 @@ void TCPSender::fill_window() {
                 _state = FIN_SENT;
             }
 
-            seg.header().seqno = wrap(_next_seqno, move(_isn));
+            seg.header().seqno = wrap(_next_seqno, _isn);
 
             _next_seqno += seg.length_in_sequence_space();
             _bytes_in_flight += seg.length_in_sequence_space();
@@ -92,7 +92,7 @@ void TCPSender::fill_window() {
             TCPSegment fin_seg;
 
             fin_seg.header().fin = true;
-            fin_seg.header().seqno = wrap(_next_seqno, move(_isn));
+            fin_seg.header().seqno = wrap(_next_seqno, _isn);
             
             _bytes_in_flight += fin_seg.length_in_sequence_space();
             _next_seqno += fin_seg.length_in_sequence_space();
@@ -113,14 +113,14 @@ void TCPSender::fill_window() {
 //! \param window_size The remote receiver's advertised window size
 void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_size) {
     // do not receive
-    if (unwrap(move(ackno), move(_isn), _next_seqno) > _next_seqno) {
+    if (unwrap(ackno, _isn, _next_seqno) > _next_seqno) {
         return;
     }
 
     _window_size = window_size;
 
     // from SYN_SENT state to SYN_ACKED state
-    if (_state == SYN_SENT && ackno == wrap(1, move(_isn))) {
+    if (_state == SYN_SENT && ackno == wrap(1, _isn)) {
         _state = SYN_ACKED;
     }
 
@@ -132,8 +132,8 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
     TCPSegment seg = _segments_in_flight.front();
     bool successful_receipt_of_new_data = false;
 
-    auto seq = unwrap(move(seg.header().seqno), move(_isn), _next_seqno) + seg.length_in_sequence_space();
-    auto ack = unwrap(move(ackno), move(_isn), _next_seqno);
+    auto seq = unwrap(seg.header().seqno, _isn, _next_seqno) + seg.length_in_sequence_space();
+    auto ack = unwrap(ackno, _isn, _next_seqno);
 
     while (seq <= ack) {
         _bytes_in_flight -= seg.length_in_sequence_space();
@@ -146,8 +146,8 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
 
         seg = _segments_in_flight.front();
 
-        seq = unwrap(move(seg.header().seqno), move(_isn), _next_seqno) + seg.length_in_sequence_space();
-        ack = unwrap(move(ackno), move(_isn), _next_seqno);
+        seq = unwrap(seg.header().seqno, _isn, _next_seqno) + seg.length_in_sequence_space();
+        ack = unwrap(ackno, _isn, _next_seqno);
     }
 
     if (successful_receipt_of_new_data) {
