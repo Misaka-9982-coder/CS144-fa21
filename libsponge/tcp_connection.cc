@@ -21,17 +21,16 @@ size_t TCPConnection::unassembled_bytes() const { return _receiver.unassembled_b
 size_t TCPConnection::time_since_last_segment_received() const { return _curr_seg_time - _last_seg_time; }
 
 void TCPConnection::segment_received(const TCPSegment &seg) {
-    _last_seg_time = _curr_seg_time;
-
     // Unclean shutdown of TCPConnection
     if (seg.header().rst) {
         _sender.stream_in().set_error();
         _receiver.stream_out().set_error();
 
         return;
-    } 
-    // normal routine
+    }
     
+    // normal routine
+    _last_seg_time = _curr_seg_time;
     _receiver.segment_received(seg);
 
     if (seg.header().ack) {
@@ -49,12 +48,11 @@ void TCPConnection::segment_received(const TCPSegment &seg) {
         }
     
         send_segment();
+        
+        if (_receiver.stream_out().input_ended() && !_sender.stream_in().eof()) {
+            _linger_after_streams_finish = false;
+        }
     }
-    
-    if (_receiver.stream_out().input_ended() && !_sender.stream_in().eof()) {
-        _linger_after_streams_finish = false;
-    }
-    
 }
 
 void TCPConnection::send_segment() {
@@ -71,7 +69,7 @@ void TCPConnection::send_segment() {
             min(_receiver.window_size(), static_cast<size_t>(numeric_limits<uint16_t>::max()))
         );
 
-        _segments_out.push(move(seg));
+        _segments_out.push(seg);
     }
 }
 
