@@ -31,8 +31,8 @@ uint64_t unwrap(WrappingInt32 n, WrappingInt32 isn, uint64_t checkpoint) {
     uint32_t offset = n.raw_value() - wrap(checkpoint, isn).raw_value();
     uint64_t res = checkpoint + offset;
     
-    if (offset > (0x80000000) && res >= (0x100000000)) {
-        res -= (0x100000000);
+    if (offset > (0x80000000) && res >= (1ul << 32)) {
+        res -= (1ul << 32);
     }
 
     return res;

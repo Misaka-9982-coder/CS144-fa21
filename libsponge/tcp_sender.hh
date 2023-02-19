@@ -94,6 +94,8 @@ class TCPSender {
     void send_empty_ack();
     void send_empty_rst();
 
+    void fill_segment(TCPSegment& seg);
+
     //! \brief create and send segments to fill as much of the window as possible
     void fill_window();
 

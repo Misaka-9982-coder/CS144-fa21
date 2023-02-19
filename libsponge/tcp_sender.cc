@@ -29,35 +29,38 @@ TCPSender::TCPSender(const size_t capacity, const uint16_t retx_timeout, const s
 
 uint64_t TCPSender::bytes_in_flight() const { return _bytes_in_flight; }
 
-void TCPSender::fill_window() {
-    size_t window_size = _window_size == 0 ? 1 : _window_size;
+void TCPSender::fill_segment(TCPSegment& seg) {
+    seg.header().seqno = wrap(_next_seqno, _isn);
 
+    _next_seqno += seg.length_in_sequence_space();
+    _bytes_in_flight += seg.length_in_sequence_space();
+
+    _segments_in_flight.push(seg);
+    _segments_out.emplace(move(seg));
+
+    if (!_timer.activated()) {
+        _timer.reset(_retransmission_timeout);
+    }
+}
+
+void TCPSender::fill_window() {
     if (_state == CLOSED) {
         // syn_segment
-        TCPSegment seg;
-        seg.header().syn = true;
-        seg.header().seqno = wrap(_next_seqno, _isn);
+        TCPSegment syn_seg;
 
-        _next_seqno += seg.length_in_sequence_space();
-        _bytes_in_flight += seg.length_in_sequence_space();
-
-        _segments_in_flight.push(seg);
-        _segments_out.emplace(move(seg));
-
-        if (!_timer.activated()) {
-            _timer.reset(_retransmission_timeout);
-        }
+        syn_seg.header().syn = true;
+        fill_segment(syn_seg);
         
         _state = SYN_SENT;
     } else if (_state == SYN_ACKED) {
-
-        size_t bytes_sent = 0;
+        size_t window_size = _window_size == 0 ? 1 : _window_size;
 
         // Congestion control
         if (_bytes_in_flight >= window_size) {
             return;
         }
 
+        size_t bytes_sent = 0;
         size_t max_tobe_sent = window_size - _bytes_in_flight;
 
         while (bytes_sent < max_tobe_sent && !_stream.buffer_empty()) {
@@ -74,17 +77,7 @@ void TCPSender::fill_window() {
                 _state = FIN_SENT;
             }
 
-            seg.header().seqno = wrap(_next_seqno, _isn);
-
-            _next_seqno += seg.length_in_sequence_space();
-            _bytes_in_flight += seg.length_in_sequence_space();
-
-            _segments_in_flight.push(seg);
-            _segments_out.emplace(move(seg));
-
-            if (!_timer.activated()) {
-                _timer.reset(_retransmission_timeout);
-            }
+            fill_segment(seg);
         }
 
         if (window_size - _bytes_in_flight >= 1 && _stream.eof() && _state == SYN_ACKED) {
@@ -92,17 +85,7 @@ void TCPSender::fill_window() {
             TCPSegment fin_seg;
 
             fin_seg.header().fin = true;
-            fin_seg.header().seqno = wrap(_next_seqno, _isn);
-            
-            _bytes_in_flight += fin_seg.length_in_sequence_space();
-            _next_seqno += fin_seg.length_in_sequence_space();
-
-            _segments_in_flight.push(fin_seg);
-            _segments_out.emplace(move(fin_seg));
-
-            if (!_timer.activated()) {
-                _timer.reset(_retransmission_timeout);
-            }
+            fill_segment(fin_seg);
 
             _state = FIN_SENT;
         }
