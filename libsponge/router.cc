@@ -38,23 +38,29 @@ void Router::route_one_datagram(InternetDatagram &dgram) {
     optional<Address> next_hop{};
     size_t interface_num{};
     optional<uint8_t> best_by_far{};
-    for(auto& r: _rules){
+
+    for(auto& r: _rules) {
         if((!best_by_far.has_value() || r.prefix_length>best_by_far.value()) && prefix_equal(dst,r.route_prefix,r.prefix_length)){
             next_hop = r.next_hop;
             interface_num = r.interface_num;
             best_by_far = r.prefix_length;
         }
     }
+
     if(best_by_far.has_value()){
-        if(dgram.header().ttl>1)
-        {
+        if(dgram.header().ttl>1) {
             dgram.header().ttl--;
-            if(next_hop.has_value())
-                interface(interface_num).send_datagram(dgram,next_hop.value());    
-            else   // if not have next_hop, the next_hop is dgram's destination hop
-                interface(interface_num).send_datagram(dgram,Address::from_ipv4_numeric(dst));    
+
+            if(next_hop.has_value()) {
+                interface(interface_num).send_datagram(dgram,next_hop.value());
+            } 
+            // if not have next_hop, the next_hop is dgram's destination hop
+            else {
+                interface(interface_num).send_datagram(dgram,Address::from_ipv4_numeric(dst));
+            }        
         }
     }
+    
     return;
 }
 
