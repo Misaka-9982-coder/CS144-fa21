@@ -5,6 +5,8 @@
 
 #include <optional>
 #include <queue>
+#include <vector>
+
 
 //! \brief A wrapper for NetworkInterface that makes the host-side
 //! interface asynchronous: instead of returning received datagrams
@@ -38,6 +40,20 @@ class AsyncNetworkInterface : public NetworkInterface {
     std::queue<InternetDatagram> &datagrams_out() { return _datagrams_out; }
 };
 
+struct route_rule{
+    uint32_t route_prefix{};
+    uint8_t prefix_length{};
+    std::optional<Address> next_hop;
+    size_t interface_num{};
+    route_rule(const uint32_t _route_prefix,
+                const uint8_t _prefix_length,
+                const std::optional<Address> _next_hop,
+                const size_t _interface_num)
+    :route_prefix(_route_prefix),prefix_length(_prefix_length)
+    ,next_hop(_next_hop),interface_num(_interface_num)
+    {}
+};
+
 //! \brief A router that has multiple network interfaces and
 //! performs longest-prefix-match routing between them.
 class Router {
@@ -48,6 +64,8 @@ class Router {
     //! as specified by the route with the longest prefix_length that matches the
     //! datagram's destination address.
     void route_one_datagram(InternetDatagram &dgram);
+
+    std::vector<route_rule> _rules{};
 
   public:
     //! Add an interface to the router
@@ -69,6 +87,8 @@ class Router {
 
     //! Route packets between the interfaces
     void route();
+    
+    bool prefix_equal(uint32_t ip1, uint32_t ip2, uint8_t prefix_length);
 };
 
 #endif  // SPONGE_LIBSPONGE_ROUTER_HH

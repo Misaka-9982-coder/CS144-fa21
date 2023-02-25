@@ -28,15 +28,34 @@ void Router::add_route(const uint32_t route_prefix,
                        const size_t interface_num) {
     cerr << "DEBUG: adding route " << Address::from_ipv4_numeric(route_prefix).ip() << "/" << int(prefix_length)
          << " => " << (next_hop.has_value() ? next_hop->ip() : "(direct)") << " on interface " << interface_num << "\n";
-
-    DUMMY_CODE(route_prefix, prefix_length, next_hop, interface_num);
-    // Your code here.
+    route_rule r(route_prefix,prefix_length,next_hop,interface_num);
+    _rules.push_back(move(r));
 }
 
 //! \param[in] dgram The datagram to be routed
 void Router::route_one_datagram(InternetDatagram &dgram) {
-    DUMMY_CODE(dgram);
-    // Your code here.
+    uint32_t dst = dgram.header().dst;
+    optional<Address> next_hop{};
+    size_t interface_num{};
+    optional<uint8_t> best_by_far{};
+    for(auto& r: _rules){
+        if((!best_by_far.has_value() || r.prefix_length>best_by_far.value()) && prefix_equal(dst,r.route_prefix,r.prefix_length)){
+            next_hop = r.next_hop;
+            interface_num = r.interface_num;
+            best_by_far = r.prefix_length;
+        }
+    }
+    if(best_by_far.has_value()){
+        if(dgram.header().ttl>1)
+        {
+            dgram.header().ttl--;
+            if(next_hop.has_value())
+                interface(interface_num).send_datagram(dgram,next_hop.value());    
+            else   // if not have next_hop, the next_hop is dgram's destination hop
+                interface(interface_num).send_datagram(dgram,Address::from_ipv4_numeric(dst));    
+        }
+    }
+    return;
 }
 
 void Router::route() {
@@ -47,5 +66,13 @@ void Router::route() {
             route_one_datagram(queue.front());
             queue.pop();
         }
+    }
+}
+
+bool Router::prefix_equal(uint32_t ip1, uint32_t ip2, uint8_t prefix_length) {
+    if(prefix_length==0){
+        return true;
+    } else {
+        return (ip1 >> (32-prefix_length)) == (ip2 >> (32-prefix_length));
     }
 }
