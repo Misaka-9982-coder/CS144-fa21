@@ -5,8 +5,10 @@
 #include "tcp_over_ip.hh"
 #include "tun.hh"
 
+#include <map>
 #include <optional>
 #include <queue>
+#include <vector>
 
 //! \brief A "network interface" that connects IP (the internet layer, or network layer)
 //! with Ethernet (the network access layer, or link layer).
@@ -40,6 +42,21 @@ class NetworkInterface {
     //! outbound queue of Ethernet frames that the NetworkInterface wants sent
     std::queue<EthernetFrame> _frames_out{};
 
+    typedef time_t size_t;
+    typedef std::pair<time_t, uint32_t> PTU;
+
+    // map + heap to achieve O(lgN) search,insert,expire check operation of IP-to-Ethernet mappings
+    std::map<uint32_t, std::pair<EthernetAddress, time_t>> _arp_table{};
+    std::priority_queue<PTU, std::vector<PTU>, std::greater<PTU>> _arp_failure_time{};
+
+    time_t _curr_time{};
+
+    // datagrams not sent yet
+    std::queue<std::pair<InternetDatagram, Address>> _dgrames_queue{};
+
+    // < arp request sent and not get response yet, timestamp, ip to find>
+    std::tuple<bool, time_t, uint32_t> _arp_retransmission_timer{};
+
   public:
     //! \brief Construct a network interface with given Ethernet (network-access-layer) and IP (internet-layer) addresses
     NetworkInterface(const EthernetAddress &ethernet_address, const Address &ip_address);
@@ -61,7 +78,13 @@ class NetworkInterface {
     std::optional<InternetDatagram> recv_frame(const EthernetFrame &frame);
 
     //! \brief Called periodically when time elapses
-    void tick(const size_t ms_since_last_tick);
+    void tick(const time_t ms_since_last_tick);
+    
+    //! \brief boardcast to find the Ethernet addr of an ip 
+    void send_arp_request(const uint32_t ip_to_find);
+
+    //! \brief resend the datagrams queued for not knowing their Ehternet addrs
+    void resend();
 };
 
 #endif  // SPONGE_LIBSPONGE_NETWORK_INTERFACE_HH
