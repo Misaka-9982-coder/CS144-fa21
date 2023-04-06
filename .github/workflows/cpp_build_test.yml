@@ -1,0 +1,37 @@
+name: C++ Build and Test
+
+on:
+  push:
+    branches:
+      - optimize
+      - master
+  pull_request:
+    branches:
+      - optimize
+      - master
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libpcap-dev
+          chmod +x setup_dev_env.sh
+          ./setup_dev_env.sh
+          sudo apt-get install -y doxygen clang-format
+
+      - name: Configure
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+
+      - name: Build
+        run: |
+          cd build
+          make -j$(nproc)
