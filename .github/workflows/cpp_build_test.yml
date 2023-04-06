@@ -35,3 +35,14 @@ jobs:
         run: |
           cd build
           make -j4
+
+      - name: Test
+        run: |
+          cd build
+          make check_lab0
+          make check_lab1
+          make check_lab2
+          make check_lab3
+          make check_lab4
+          make check_lab5
+          make check_lab6
