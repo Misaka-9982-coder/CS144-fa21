@@ -13,6 +13,8 @@ apt-get -y install software-properties-common
 add-apt-repository multiverse
 add-apt-repository universe
 add-apt-repository restricted
+# Add mahimahi PPA
+add-apt-repository -y ppa:keithw/mahimahi
 
 ### make sure we're totally up-to-date now
 apt-get update
