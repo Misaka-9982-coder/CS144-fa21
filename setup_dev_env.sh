@@ -34,7 +34,3 @@ for ver in 7 8; do
             echo "--slave /usr/bin/${prog} ${prog} /usr/bin/${prog}-${ver}"
         done)
 done
-
-### add user to the virtualbox shared folder group and enable the virtualbox guest utils
-adduser "$SUDO_USER" vboxsf
-systemctl enable virtualbox-guest-utils.service
