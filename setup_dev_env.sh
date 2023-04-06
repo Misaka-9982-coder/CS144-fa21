@@ -19,7 +19,7 @@ apt-get update
 apt-get -y dist-upgrade
 
 ### install the software we need for the VM and build env
-apt-get -y install build-essential gcc gcc-8 g++ g++-8 cmake libpcap-dev htop jnettop screen   \
+apt-get -y install build-essential gcc g++ cmake libpcap-dev htop jnettop screen   \
                    emacs-nox vim-nox automake pkg-config libtool libtool-bin git tig links     \
                    parallel iptables mahimahi mininet net-tools tcpdump wireshark telnet socat \
                    clang clang-format clang-tidy clang-tools coreutils bash doxygen graphviz   \
